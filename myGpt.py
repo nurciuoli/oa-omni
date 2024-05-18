@@ -3,6 +3,30 @@ client = OpenAI()
 from typing_extensions import override
 from openai import AssistantEventHandler
 import json
+import base64
+
+
+# Function to encode the image into OA file format
+def encode_image_file(image_path):
+    file = client.files.create(
+    file=open(image_path, "rb"),
+    purpose="vision"
+    )
+    return file
+
+# Append image files to content list
+def append_content_w_images(prompt,images):
+    content=[] # Method 1 implementation
+    content.append(
+    {"type": "text", "text": prompt})
+    for image in images:
+        file = encode_image_file(image)
+        content.append({
+        "type": "image_file",
+        "image_file": {
+            "file_id": file.id,
+        }})
+    return content
 
 # Async event handling
 class EventHandler(AssistantEventHandler):    
@@ -82,11 +106,16 @@ class Agent:
     def chat(self,msg,additiona_prompt = "remember to double check your work",images=None,files=None,stream=False):
         if self.thread is None:
             initialize_thread(self)
+
+        if images is not None:
+           content =append_content_w_images(msg,images)
+        else:
+           content = msg
         
         message = client.beta.threads.messages.create(
             thread_id=self.thread.id,
             role="user",
-            content=msg
+            content=content
             )
         
         self.messages.append(message)
